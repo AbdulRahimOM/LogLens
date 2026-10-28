@@ -2,7 +2,7 @@ export const MAX_EVENTS = 500;
 export const LEVELS = new Set(['DEBUG', 'INFO', 'WARN', 'ERROR', 'UNKNOWN']);
 
 export function createLogState(capacity = MAX_EVENTS) {
-  return { capacity, events: [], paused: false, pausedCount: 0, droppedCount: 0, frozenEvents: null };
+  return { capacity, events: [], paused: false, pausedCount: 0, droppedCount: 0, frozenEvents: null, expandedEventKeys: new Set() };
 }
 
 export function validateApiBaseUrl(value) {
@@ -45,6 +45,10 @@ export function receiveEvent(state, event) {
   state.events = appendBounded(state.events, event, state.capacity);
   if (overflow) state.droppedCount += 1;
   if (state.paused) state.pausedCount += 1;
+  const retainedKeys = new Set(state.events.map(item => item._key).filter(key => key !== undefined));
+  for (const key of state.expandedEventKeys) {
+    if (!retainedKeys.has(key)) state.expandedEventKeys.delete(key);
+  }
   return { overflow, shouldRender: !state.paused };
 }
 
@@ -64,6 +68,7 @@ export function clearEvents(state) {
   state.events = [];
   state.droppedCount = 0;
   state.pausedCount = 0;
+  state.expandedEventKeys.clear();
   if (state.paused) state.frozenEvents = [];
 }
 
@@ -75,8 +80,28 @@ export function restoreScroll(element, savedTop, autoScroll) {
   element.scrollTop = autoScroll ? element.scrollHeight : (savedTop ?? element.scrollTop);
 }
 
-export function filterEvents(events, selectedSources, level = 'ALL') {
-  return events.filter(event => selectedSources.has(event.source) && (level === 'ALL' || event.level === level));
+export function filterEvents(events, selectedSources, level = 'ALL', search = '') {
+  const query = search.trim().toLowerCase();
+  return events.filter(event => selectedSources.has(event.source) &&
+    (level === 'ALL' || event.level === level) &&
+    (!query || event.message.toLowerCase().includes(query)));
+}
+
+export function hasStructuredFields(fields) {
+  return fields !== null && typeof fields === 'object' && Object.keys(fields).length > 0;
+}
+
+export function formatStructuredFields(fields) {
+  return JSON.stringify(fields, null, 2);
+}
+
+export function toggleExpandedEvent(state, key) {
+  if (state.expandedEventKeys.has(key)) {
+    state.expandedEventKeys.delete(key);
+    return false;
+  }
+  state.expandedEventKeys.add(key);
+  return true;
 }
 
 export function validEvent(event) {
@@ -109,7 +134,7 @@ if (typeof document !== 'undefined') {
   const levelSelect = byId('level-filter');
   const logView = byId('log-view');
   const emptyState = byId('empty-state');
-  const state = { ...createLogState(), services: [], selected: null, view: 'combined', level: 'ALL', autoScroll: true, eventSource: null, nextOrder: 0, scrollPositions: new Map() };
+  const state = { ...createLogState(), services: [], selected: null, view: 'combined', level: 'ALL', search: '', autoScroll: true, eventSource: null, nextOrder: 0, nextEventKey: 0, scrollPositions: new Map() };
 
   function showNotice(message, error = false) {
     const notice = byId('notice'); notice.textContent = message; notice.hidden = false;
@@ -166,7 +191,33 @@ if (typeof document !== 'undefined') {
     const level = document.createElement('span'); level.className = `level level-${safeLevel(event.level).toLowerCase()}`; level.textContent = safeLevel(event.level); meta.append(level);
     if (event.origin) { const origin = document.createElement('span'); origin.className = 'origin'; origin.textContent = event.origin; meta.append(origin); }
     const message = document.createElement('p'); message.className = 'message'; message.textContent = event.message;
-    row.append(meta, message); return row;
+    row.append(meta, message);
+    if (hasStructuredFields(event.fields)) {
+      const detailsID = `event-fields-${event._key}`;
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'fields-toggle';
+      toggle.setAttribute('aria-controls', detailsID);
+      const details = document.createElement('pre');
+      details.id = detailsID;
+      details.className = 'fields-details';
+      const expanded = state.expandedEventKeys.has(event._key);
+      toggle.setAttribute('aria-expanded', String(expanded));
+      toggle.textContent = expanded ? 'Hide fields' : 'Show fields';
+      toggle.setAttribute('aria-label', `${expanded ? 'Hide' : 'Show'} structured fields for ${event.source} event`);
+      details.hidden = !expanded;
+      if (expanded) details.textContent = formatStructuredFields(event.fields);
+      toggle.addEventListener('click', () => {
+        const open = toggleExpandedEvent(state, event._key);
+        toggle.setAttribute('aria-expanded', String(open));
+        toggle.textContent = open ? 'Hide fields' : 'Show fields';
+        toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} structured fields for ${event.source} event`);
+        details.hidden = !open;
+        details.textContent = open ? formatStructuredFields(event.fields) : '';
+      });
+      row.append(toggle, details);
+    }
+    return row;
   }
   function formatTime(value) {
     const date = new Date(value);
@@ -198,7 +249,8 @@ if (typeof document !== 'undefined') {
     if (!logView) return;
     if (!state.autoScroll) rememberScrollPositions();
     const selected = state.selected ?? new Set(state.services.map(s => s.name));
-    const visible = filterEvents(displayedEvents(state), selected, state.level);
+    const displayed = displayedEvents(state);
+    const visible = filterEvents(displayed, selected, state.level, state.search);
     logView.replaceChildren(); logView.className = `log-view ${state.view}`;
     if (state.view === 'combined') {
       const list = document.createElement('div'); list.className = 'combined-list';
@@ -222,7 +274,7 @@ if (typeof document !== 'undefined') {
     }
     emptyState.hidden = visible.length > 0;
     if (!state.services.length) { byId('empty-title').textContent = 'No configured services'; byId('empty-message').textContent = 'Add a source in LogStreamer configuration to see logs.'; }
-    else if (state.events.length && !visible.length) { byId('empty-title').textContent = 'No matching events'; byId('empty-message').textContent = 'Adjust the service or level filters.'; }
+    else if (displayed.length && !visible.length) { byId('empty-title').textContent = 'No matching events'; byId('empty-message').textContent = state.search ? 'Try another message search or adjust the service and level filters.' : 'Adjust the service or level filters.'; }
     else { byId('empty-title').textContent = 'Waiting for log events'; byId('empty-message').textContent = 'Events from your configured services will appear here.'; }
     restoreVisibleScroll();
     updateControls();
@@ -238,7 +290,7 @@ if (typeof document !== 'undefined') {
       if (!event) return;
       const parsedOrder = Number.parseInt(message.lastEventId, 10);
       const order = Number.isSafeInteger(parsedOrder) ? parsedOrder : state.nextOrder++;
-      const result = receiveEvent(state, { ...event, _order: order });
+      const result = receiveEvent(state, { ...event, _order: order, _key: state.nextEventKey++ });
       if (result.shouldRender) render();
       else updateControls();
     };
@@ -246,6 +298,7 @@ if (typeof document !== 'undefined') {
 
   sourceSelect.addEventListener('change', () => { state.selected = selectedValues(); render(); });
   levelSelect.addEventListener('change', () => { state.level = levelSelect.value; render(); });
+  byId('message-search').addEventListener('input', event => { state.search = event.currentTarget.value; render(); });
   byId('combined-view').addEventListener('click', () => setView('combined'));
   byId('separated-view').addEventListener('click', () => setView('separated'));
   byId('pause-toggle').addEventListener('click', () => {

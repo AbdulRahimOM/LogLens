@@ -14,4 +14,6 @@ Pause freezes the displayed rows while the stream and buffer continue updating. 
 
 LogStreamer may replay its recent-history snapshot after an SSE reconnect, so events cleared in LogLens can appear again if the connection reconnects.
 
+Search matches message text within the current buffer. Select **Show fields** on an event to inspect its structured fields; values are displayed as text.
+
 Run the unit checks with `npm test` (Node.js built-in test runner; no package installation is needed).

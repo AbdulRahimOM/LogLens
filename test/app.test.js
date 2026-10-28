@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { appendBounded, clearEvents, createLogState, displayedEvents, fetchServices, filterEvents, normalizeServiceResponse, parseEventData, preserveSelection, receiveEvent, reconnectState, restoreScroll, setPaused, validateApiBaseUrl, validEvent } from '../app.js';
+import { appendBounded, clearEvents, createLogState, displayedEvents, fetchServices, filterEvents, formatStructuredFields, hasStructuredFields, normalizeServiceResponse, parseEventData, preserveSelection, receiveEvent, reconnectState, restoreScroll, setPaused, toggleExpandedEvent, validateApiBaseUrl, validEvent } from '../app.js';
 
 test('validates runtime API origin and rejects path or non-http origins', () => {
   assert.equal(validateApiBaseUrl(' https://logs.example.com/ '), 'https://logs.example.com');
@@ -24,9 +24,17 @@ test('reports services API failures and retries can consume a later good respons
 });
 
 test('filters events locally by selected source and level', () => {
-  const events = [{ source: 'api', level: 'ERROR' }, { source: 'worker', level: 'INFO' }, { source: 'api', level: 'INFO' }];
+  const events = [
+    { source: 'api', level: 'ERROR', message: 'request FAILED' },
+    { source: 'worker', level: 'INFO', message: 'worker ready' },
+    { source: 'api', level: 'INFO', message: 'request completed' }
+  ];
   assert.deepEqual(filterEvents(events, new Set(['api']), 'INFO'), [events[2]]);
   assert.deepEqual(filterEvents(events, new Set(['api', 'worker'])), events);
+  assert.deepEqual(filterEvents(events, new Set(['api', 'worker']), 'ALL', 'FaIl'), [events[0]]);
+  assert.deepEqual(filterEvents(events, new Set(['api']), 'ERROR', 'fail'), [events[0]]);
+  assert.deepEqual(filterEvents(events, new Set(['api']), 'INFO', 'missing'), []);
+  assert.deepEqual(filterEvents(events, new Set(['api']), 'ALL', 'REQUEST '), [events[0], events[2]]);
 });
 
 test('bounded buffer retains latest events in incoming order', () => {
@@ -97,6 +105,44 @@ test('a new pause resets the paused-arrival count', () => {
   setPaused(state, false);
   setPaused(state, true);
   assert.equal(state.pausedCount, 0);
+});
+
+test('search sees incoming events in the bounded buffer and frozen rows while paused', () => {
+  const state = createLogState(2);
+  receiveEvent(state, { _key: 1, _order: 1, source: 'api', level: 'INFO', message: 'before' });
+  setPaused(state, true);
+  receiveEvent(state, { _key: 2, _order: 2, source: 'api', level: 'INFO', message: 'after' });
+  assert.deepEqual(filterEvents(displayedEvents(state), new Set(['api']), 'ALL', 'after'), []);
+  setPaused(state, false);
+  assert.deepEqual(filterEvents(displayedEvents(state), new Set(['api']), 'ALL', 'AFTER').map(event => event._key), [2]);
+});
+
+test('structured fields omit empty values and format nested and large content as JSON text', () => {
+  assert.equal(hasStructuredFields(undefined), false);
+  assert.equal(hasStructuredFields(null), false);
+  assert.equal(hasStructuredFields({}), false);
+  assert.equal(hasStructuredFields([]), false);
+  assert.equal(hasStructuredFields({ nested: {} }), true);
+  const fields = { nested: { count: 3 }, markup: '<img src=x onerror=alert(1)>', large: 'x'.repeat(100_000) };
+  const output = formatStructuredFields(fields);
+  assert.match(output, /\n  "nested": \{/);
+  assert.ok(output.includes('<img src=x onerror=alert(1)>'));
+  assert.ok(output.includes('x'.repeat(100_000)));
+});
+
+test('expanded event state remains only while the corresponding event is buffered', () => {
+  const state = createLogState(2);
+  receiveEvent(state, { _key: 1, _order: 1 });
+  receiveEvent(state, { _key: 2, _order: 2 });
+  assert.equal(toggleExpandedEvent(state, 1), true);
+  assert.equal(toggleExpandedEvent(state, 1), false);
+  toggleExpandedEvent(state, 2);
+  receiveEvent(state, { _key: 3, _order: 3 });
+  assert.deepEqual([...state.expandedEventKeys], [2]);
+  assert.equal(toggleExpandedEvent(state, 2), false);
+  toggleExpandedEvent(state, 3);
+  clearEvents(state);
+  assert.deepEqual([...state.expandedEventKeys], []);
 });
 
 test('auto-scroll goes to the bottom; disabled mode restores independent panel offsets', () => {

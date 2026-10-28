@@ -17,6 +17,7 @@
     <section id="notice" class="notice" role="status" hidden></section>
     <section class="toolbar" aria-label="Log filters and display options">
       <label class="filter service-filter">Services <select id="source-filter" multiple size="3" aria-label="Filter by services"></select><span class="hint">⌘/Ctrl-click to select multiple</span></label>
+      <label class="filter search-filter">Message <input id="message-search" type="search" placeholder="Search messages" autocomplete="off" spellcheck="false"></label>
       <label class="filter">Level <select id="level-filter" aria-label="Filter by level"><option value="ALL">All levels</option><option>DEBUG</option><option>INFO</option><option>WARN</option><option>ERROR</option><option>UNKNOWN</option></select></label>
       <div class="view-switch" role="group" aria-label="Log layout"><button id="combined-view" class="active" type="button" aria-pressed="true">Combined</button><button id="separated-view" type="button" aria-pressed="false">Separated</button></div>
       <div class="log-actions" role="group" aria-label="Log viewing controls">
