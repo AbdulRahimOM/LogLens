@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { appendBounded, clearEvents, createLogState, displayedEvents, emptyStateCopy, fetchServices, filterEvents, formatStructuredFields, hasStructuredFields, normalizeServiceResponse, parseEventData, preserveSelection, receiveEvent, reconnectState, restoreScroll, setPaused, toggleExpandedEvent, validateApiBaseUrl, validEvent } from '../app.js';
+import { appendBounded, clearEvents, createLogState, displayedEvents, emptyStateCopy, fetchServices, filterEvents, formatStructuredFields, hasStructuredFields, normalizeServiceResponse, parseEventData, parseInitialServices, parseInitialView, preserveSelection, receiveEvent, reconnectState, restoreScroll, setPaused, toggleExpandedEvent, validateApiBaseUrl, validEvent } from '../app.js';
 
 test('validates runtime API origin and rejects path or non-http origins', () => {
   assert.equal(validateApiBaseUrl(' https://logs.example.com/ '), 'https://logs.example.com');
@@ -14,6 +14,24 @@ test('normalizes services and preserves still-configured source selections', () 
   assert.deepEqual([...preserveSelection(null, services)], ['api', 'db']);
   assert.deepEqual([...preserveSelection(new Set(['db', 'gone']), services)], ['db']);
   assert.throws(() => normalizeServiceResponse({}));
+});
+
+test('initial URL service selection intersects configured names and falls back to all', () => {
+  const services = [{ name: 'api' }, { name: 'worker' }, { name: 'db' }];
+  assert.deepEqual([...parseInitialServices('', services)], ['api', 'worker', 'db']);
+  assert.deepEqual([...parseInitialServices('?services=', services)], ['api', 'worker', 'db']);
+  assert.deepEqual([...parseInitialServices('?services=unknown', services)], ['api', 'worker', 'db']);
+  assert.deepEqual([...parseInitialServices('?services=api,unknown,db,api', services)], ['api', 'db']);
+  assert.deepEqual([...parseInitialServices('?services=%20worker%20', services)], ['worker']);
+  assert.deepEqual([...parseInitialServices('?services=api', [])], []);
+});
+
+test('initial URL view accepts only combined or separated and defaults to combined', () => {
+  assert.equal(parseInitialView('?view=separated'), 'separated');
+  assert.equal(parseInitialView('?view=combined'), 'combined');
+  assert.equal(parseInitialView('?view=SEPARATED'), 'combined');
+  assert.equal(parseInitialView('?view=other'), 'combined');
+  assert.equal(parseInitialView(''), 'combined');
 });
 
 test('reports services API failures and retries can consume a later good response', async () => {

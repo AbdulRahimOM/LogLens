@@ -34,6 +34,18 @@ export function preserveSelection(previous, services) {
   return new Set([...previous].filter(name => available.has(name)));
 }
 
+export function parseInitialView(search = '') {
+  return new URLSearchParams(search).get('view') === 'separated' ? 'separated' : 'combined';
+}
+
+export function parseInitialServices(search = '', services = []) {
+  const available = new Set(services.map(service => service.name));
+  const requested = (new URLSearchParams(search).get('services') ?? '')
+    .split(',').map(name => name.trim()).filter(Boolean);
+  const selected = new Set(requested.filter(name => available.has(name)));
+  return selected.size ? selected : new Set(available);
+}
+
 export function appendBounded(events, event, capacity = MAX_EVENTS) {
   const next = [...events, event];
   if (event && typeof event._order === 'number') next.sort((a, b) => a._order - b._order);
@@ -148,7 +160,7 @@ if (typeof document !== 'undefined') {
   const levelSelect = byId('level-filter');
   const logView = byId('log-view');
   const emptyState = byId('empty-state');
-  const state = { ...createLogState(), services: [], servicesLoaded: false, serviceLoadError: false, selected: null, view: 'combined', level: 'ALL', search: '', autoScroll: true, connection: 'Connecting', eventSource: null, nextOrder: 0, nextEventKey: 0, scrollPositions: new Map() };
+  const state = { ...createLogState(), services: [], servicesLoaded: false, serviceLoadError: false, initialSelectionApplied: false, selected: null, view: parseInitialView(window.location.search), level: 'ALL', search: '', autoScroll: true, connection: 'Connecting', eventSource: null, nextOrder: 0, nextEventKey: 0, scrollPositions: new Map() };
 
   function showNotice(message, error = false) {
     const notice = byId('notice'); notice.textContent = message; notice.hidden = false;
@@ -166,7 +178,10 @@ if (typeof document !== 'undefined') {
   }
   function selectedValues() { return new Set([...sourceSelect.options].filter(o => o.selected).map(o => o.value)); }
   function updateServiceOptions(services) {
-    state.selected = preserveSelection(state.selected, services);
+    state.selected = state.initialSelectionApplied
+      ? preserveSelection(state.selected, services)
+      : parseInitialServices(window.location.search, services);
+    state.initialSelectionApplied = true;
     state.services = services;
     sourceSelect.replaceChildren();
     for (const service of services) {
@@ -359,5 +374,6 @@ if (typeof document !== 'undefined') {
     }
     render();
   }
+  setView(state.view);
   if (apiBase) { refreshServices(); window.setInterval(refreshServices, 5000); connect(); }
 }
