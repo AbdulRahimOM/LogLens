@@ -1,0 +1,7 @@
+# Deployment-specific API origin
+config.js
+
+# OS/editor files
+.DS_Store
+.idea/
+.vscode/

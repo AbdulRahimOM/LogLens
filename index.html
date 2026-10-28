@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>LogLens — Live Logs</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">L</span><div><h1>LogLens</h1><p>Live service logs</p></div></div>
+      <div class="connection" aria-live="polite"><span class="connection-dot" id="connection-dot"></span><span id="connection-status">Connecting</span><span id="connection-detail" class="muted"></span></div>
+    </header>
+
+    <section id="notice" class="notice" role="status" hidden></section>
+    <section class="toolbar" aria-label="Log filters and display options">
+      <label class="filter service-filter">Services <select id="source-filter" multiple size="3" aria-label="Filter by services"></select><span class="hint">⌘/Ctrl-click to select multiple</span></label>
+      <label class="filter">Level <select id="level-filter" aria-label="Filter by level"><option value="ALL">All levels</option><option>DEBUG</option><option>INFO</option><option>WARN</option><option>ERROR</option><option>UNKNOWN</option></select></label>
+      <div class="view-switch" role="group" aria-label="Log layout"><button id="combined-view" class="active" type="button" aria-pressed="true">Combined</button><button id="separated-view" type="button" aria-pressed="false">Separated</button></div>
+    </section>
+
+    <section class="workspace" aria-label="Log events">
+      <div class="empty-state" id="empty-state"><span class="empty-icon" aria-hidden="true">⌁</span><h2 id="empty-title">Waiting for log events</h2><p id="empty-message">Events from your configured services will appear here.</p></div>
+      <div id="log-view" class="log-view" aria-live="polite" aria-relevant="additions text"></div>
+    </section>
+    <footer><span id="event-count">0 events</span><span>Recent events · in-memory buffer: 500</span></footer>
+  </main>
+  <script src="config.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
