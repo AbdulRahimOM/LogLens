@@ -11,12 +11,12 @@
   <main class="app-shell">
     <header class="topbar">
       <div class="brand"><span class="brand-mark" aria-hidden="true">L</span><div><h1>LogLens</h1><p>Live service logs</p></div></div>
-      <div class="connection" aria-live="polite"><span class="connection-dot" id="connection-dot"></span><span id="connection-status">Connecting</span><span id="connection-detail" class="muted"></span></div>
+      <div class="connection" aria-live="polite" aria-atomic="true"><span class="connection-dot" id="connection-dot"></span><span id="connection-status">Connecting</span><span id="connection-detail" class="muted"></span></div>
     </header>
 
     <section id="notice" class="notice" role="status" hidden></section>
     <section class="toolbar" aria-label="Log filters and display options">
-      <label class="filter service-filter">Services <select id="source-filter" multiple size="3" aria-label="Filter by services"></select><span class="hint">⌘/Ctrl-click to select multiple</span></label>
+      <label class="filter service-filter">Services <select id="source-filter" multiple size="3" aria-label="Filter by services" aria-describedby="source-filter-help"></select><span class="hint" id="source-filter-help">⌘/Ctrl-click to select multiple</span></label>
       <label class="filter search-filter">Message <input id="message-search" type="search" placeholder="Search messages" autocomplete="off" spellcheck="false"></label>
       <label class="filter">Level <select id="level-filter" aria-label="Filter by level"><option value="ALL">All levels</option><option>DEBUG</option><option>INFO</option><option>WARN</option><option>ERROR</option><option>UNKNOWN</option></select></label>
       <div class="view-switch" role="group" aria-label="Log layout"><button id="combined-view" class="active" type="button" aria-pressed="true">Combined</button><button id="separated-view" type="button" aria-pressed="false">Separated</button></div>
@@ -26,14 +26,15 @@
         <button id="clear-logs" type="button">Clear</button>
       </div>
     </section>
-    <div class="buffer-notices" aria-live="polite" aria-atomic="true">
+    <div class="buffer-notices">
       <span id="paused-status" class="buffer-notice paused-status" hidden></span>
       <span id="dropped-status" class="buffer-notice dropped-status" hidden></span>
     </div>
+    <div id="status-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
 
     <section class="workspace" aria-label="Log events">
-      <div class="empty-state" id="empty-state"><span class="empty-icon" aria-hidden="true">⌁</span><h2 id="empty-title">Waiting for log events</h2><p id="empty-message">Events from your configured services will appear here.</p></div>
-      <div id="log-view" class="log-view" aria-live="polite" aria-relevant="additions text"></div>
+      <div class="empty-state" id="empty-state" role="status" aria-live="polite" aria-atomic="true"><span class="empty-icon" aria-hidden="true">⌁</span><h2 id="empty-title">Loading services</h2><p id="empty-message">Fetching configured sources from LogStreamer.</p></div>
+      <div id="log-view" class="log-view" aria-live="off"></div>
     </section>
     <footer><span id="event-count">0 events</span><span>Recent events · in-memory buffer: 500</span></footer>
   </main>

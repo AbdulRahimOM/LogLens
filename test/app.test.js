@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { appendBounded, clearEvents, createLogState, displayedEvents, fetchServices, filterEvents, formatStructuredFields, hasStructuredFields, normalizeServiceResponse, parseEventData, preserveSelection, receiveEvent, reconnectState, restoreScroll, setPaused, toggleExpandedEvent, validateApiBaseUrl, validEvent } from '../app.js';
+import { readFileSync } from 'node:fs';
+import { appendBounded, clearEvents, createLogState, displayedEvents, emptyStateCopy, fetchServices, filterEvents, formatStructuredFields, hasStructuredFields, normalizeServiceResponse, parseEventData, preserveSelection, receiveEvent, reconnectState, restoreScroll, setPaused, toggleExpandedEvent, validateApiBaseUrl, validEvent } from '../app.js';
 
 test('validates runtime API origin and rejects path or non-http origins', () => {
   assert.equal(validateApiBaseUrl(' https://logs.example.com/ '), 'https://logs.example.com');
@@ -153,4 +154,35 @@ test('auto-scroll goes to the bottom; disabled mode restores independent panel o
   for (const panel of panels.values()) restoreScroll(panel, 0, true);
   assert.equal(panels.get('api').scrollTop, 240);
   assert.equal(panels.get('worker').scrollTop, 360);
+});
+
+test('empty states distinguish service loading, missing services, filters, and stream connection', () => {
+  const copy = values => emptyStateCopy({ serviceCount: 1, displayedCount: 0, visibleCount: 0, ...values });
+  assert.equal(copy({ servicesLoaded: false, serviceLoadError: false, connection: 'Connecting' }).title, 'Loading services');
+  assert.equal(copy({ servicesLoaded: false, serviceLoadError: true, connection: 'Connecting' }).title, 'Services unavailable');
+  assert.equal(copy({ servicesLoaded: true, serviceCount: 0, connection: 'Connected' }).title, 'No configured services');
+  assert.equal(copy({ servicesLoaded: true, displayedCount: 3, visibleCount: 0, connection: 'Connected' }).title, 'No matching events');
+  assert.equal(copy({ servicesLoaded: true, connection: 'Connecting' }).title, 'Connecting to LogStreamer');
+  assert.equal(copy({ servicesLoaded: true, connection: 'Reconnecting' }).title, 'Reconnecting to LogStreamer');
+  assert.equal(copy({ servicesLoaded: true, connection: 'Closed' }).title, 'Log stream closed');
+  assert.equal(copy({ servicesLoaded: true, connection: 'Connected' }).title, 'Waiting for log events');
+});
+
+test('page exposes accessible controls, focused log navigation, and concise live status', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+  const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+  assert.match(html, /id="source-filter"[^>]*aria-describedby="source-filter-help"/);
+  assert.match(html, /id="message-search" type="search"/);
+  assert.match(html, /id="log-view" class="log-view" aria-live="off"/);
+  assert.match(html, /id="empty-state" role="status" aria-live="polite"/);
+  assert.match(html, /id="status-announcer"[^>]*aria-live="polite"/);
+  assert.match(html, /class="connection" aria-live="polite"/);
+  assert.match(css, /button:focus-visible/);
+  assert.match(css, /\.auto-scroll-control input:focus-visible/);
+  assert.match(css, /@media\(max-width:1000px\)/);
+  assert.match(css, /@media\(max-width:700px\)/);
+  assert.match(css, /overflow-wrap:anywhere/);
+  assert.doesNotMatch(app, /innerHTML|insertAdjacentHTML|document\.write/);
+  assert.match(app, /details\.textContent = formatStructuredFields/);
 });

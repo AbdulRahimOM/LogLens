@@ -123,6 +123,20 @@ export function reconnectState(readyState, states) {
   return readyState === states.CLOSED ? 'Closed' : readyState === states.CONNECTING ? 'Reconnecting' : 'Connected';
 }
 
+export function emptyStateCopy({ servicesLoaded, serviceLoadError, serviceCount, displayedCount, visibleCount, connection }) {
+  if (!servicesLoaded) {
+    return serviceLoadError
+      ? { title: 'Services unavailable', message: 'Could not load configured services. LogLens will retry shortly.' }
+      : { title: 'Loading services', message: 'Fetching configured sources from LogStreamer.' };
+  }
+  if (serviceCount === 0) return { title: 'No configured services', message: 'Add a source in LogStreamer configuration to start viewing logs.' };
+  if (displayedCount > 0 && visibleCount === 0) return { title: 'No matching events', message: 'Adjust the service, level, or message search filters.' };
+  if (connection === 'Reconnecting') return { title: 'Reconnecting to LogStreamer', message: 'The stream was interrupted. LogStreamer will reconnect automatically.' };
+  if (connection === 'Closed') return { title: 'Log stream closed', message: 'The stream has closed. Reload LogLens to start a new connection.' };
+  if (connection === 'Connecting') return { title: 'Connecting to LogStreamer', message: 'New log events will appear here when the stream connects.' };
+  return { title: 'Waiting for log events', message: 'Connected to LogStreamer. Waiting for new log events.' };
+}
+
 const byId = id => document.getElementById(id);
 
 if (typeof document !== 'undefined') {
@@ -134,16 +148,21 @@ if (typeof document !== 'undefined') {
   const levelSelect = byId('level-filter');
   const logView = byId('log-view');
   const emptyState = byId('empty-state');
-  const state = { ...createLogState(), services: [], selected: null, view: 'combined', level: 'ALL', search: '', autoScroll: true, eventSource: null, nextOrder: 0, nextEventKey: 0, scrollPositions: new Map() };
+  const state = { ...createLogState(), services: [], servicesLoaded: false, serviceLoadError: false, selected: null, view: 'combined', level: 'ALL', search: '', autoScroll: true, connection: 'Connecting', eventSource: null, nextOrder: 0, nextEventKey: 0, scrollPositions: new Map() };
 
   function showNotice(message, error = false) {
     const notice = byId('notice'); notice.textContent = message; notice.hidden = false;
     notice.classList.toggle('error', error);
   }
   function setConnection(label, detail = '') {
+    state.connection = label;
     byId('connection-status').textContent = label;
     byId('connection-detail').textContent = detail;
     byId('connection-dot').className = `connection-dot ${label.toLowerCase()}`;
+    updateEmptyState();
+  }
+  function announceStatus(message) {
+    byId('status-announcer').textContent = message;
   }
   function selectedValues() { return new Set([...sourceSelect.options].filter(o => o.selected).map(o => o.value)); }
   function updateServiceOptions(services) {
@@ -177,10 +196,15 @@ if (typeof document !== 'undefined') {
   }
   async function refreshServices() {
     try {
-      updateServiceOptions(await fetchServices(apiBase));
+      const services = await fetchServices(apiBase);
+      state.servicesLoaded = true;
+      state.serviceLoadError = false;
+      updateServiceOptions(services);
       byId('notice').hidden = true;
     } catch (error) {
+      if (!state.servicesLoaded) state.serviceLoadError = true;
       showNotice(`Could not load services. ${error.message} Retrying shortly.`, true);
+      updateEmptyState();
     }
   }
   function makeRow(event) {
@@ -245,6 +269,20 @@ if (typeof document !== 'undefined') {
       }
     }
   }
+  function updateEmptyState() {
+    if (!emptyState) return;
+    const displayed = displayedEvents(state);
+    const selected = state.selected ?? new Set(state.services.map(s => s.name));
+    const visibleCount = filterEvents(displayed, selected, state.level, state.search).length;
+    const copy = emptyStateCopy({
+      servicesLoaded: state.servicesLoaded, serviceLoadError: state.serviceLoadError,
+      serviceCount: state.services.length, displayedCount: displayed.length,
+      visibleCount, connection: state.connection
+    });
+    emptyState.hidden = visibleCount > 0;
+    byId('empty-title').textContent = copy.title;
+    byId('empty-message').textContent = copy.message;
+  }
   function render() {
     if (!logView) return;
     if (!state.autoScroll) rememberScrollPositions();
@@ -272,10 +310,7 @@ if (typeof document !== 'undefined') {
         panel.append(list); logView.append(panel);
       }
     }
-    emptyState.hidden = visible.length > 0;
-    if (!state.services.length) { byId('empty-title').textContent = 'No configured services'; byId('empty-message').textContent = 'Add a source in LogStreamer configuration to see logs.'; }
-    else if (displayed.length && !visible.length) { byId('empty-title').textContent = 'No matching events'; byId('empty-message').textContent = state.search ? 'Try another message search or adjust the service and level filters.' : 'Adjust the service or level filters.'; }
-    else { byId('empty-title').textContent = 'Waiting for log events'; byId('empty-message').textContent = 'Events from your configured services will appear here.'; }
+    updateEmptyState();
     restoreVisibleScroll();
     updateControls();
   }
@@ -291,6 +326,7 @@ if (typeof document !== 'undefined') {
       const parsedOrder = Number.parseInt(message.lastEventId, 10);
       const order = Number.isSafeInteger(parsedOrder) ? parsedOrder : state.nextOrder++;
       const result = receiveEvent(state, { ...event, _order: order, _key: state.nextEventKey++ });
+      if (result.overflow && state.droppedCount === 1) announceStatus('The log buffer is full. Older events are being dropped.');
       if (result.shouldRender) render();
       else updateControls();
     };
@@ -303,10 +339,15 @@ if (typeof document !== 'undefined') {
   byId('separated-view').addEventListener('click', () => setView('separated'));
   byId('pause-toggle').addEventListener('click', () => {
     setPaused(state, !state.paused);
+    announceStatus(state.paused ? 'Log display paused. New events are still being received.' : 'Log display resumed.');
     updateControls();
     if (!state.paused) render();
   });
-  byId('clear-logs').addEventListener('click', () => { clearEvents(state); render(); });
+  byId('clear-logs').addEventListener('click', () => {
+    clearEvents(state);
+    announceStatus('Log display cleared. New events are still being received.');
+    render();
+  });
   byId('auto-scroll').addEventListener('change', event => {
     state.autoScroll = event.currentTarget.checked;
     if (state.autoScroll) restoreVisibleScroll();

@@ -18,3 +18,26 @@
 .fields-details[hidden]{display:none}
 @media(max-width:1000px){.toolbar{flex-wrap:wrap}.view-switch{margin-left:auto}.log-actions{margin-left:auto}}
 @media(max-width:700px){.toolbar{grid-template-columns:1fr 1fr}.search-filter{grid-column:1/-1;min-width:0}.view-switch{margin:0;justify-self:start}.log-actions{grid-column:1/-1;margin:0;justify-content:space-between}.buffer-notices{margin-top:-6px}}
+
+/* Phase 4 responsive and accessibility refinements */
+.app-shell{width:100%;overflow-x:clip}
+.toolbar>*{min-width:0}
+.filter{min-width:0}
+.service-filter{flex:1 1 250px}
+.search-filter{flex:2 1 260px}
+.filter select,.filter input{max-width:100%}
+.log-view.separated{grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));overscroll-behavior:contain}
+.service-panel{min-width:0}
+.panel-heading{min-width:0;gap:10px}
+.panel-heading h2{min-width:0}
+.service-state{flex:0 0 auto;white-space:nowrap}
+.log-meta{flex-wrap:wrap}
+.service-name,.origin{min-width:0;overflow-wrap:anywhere}
+.message,.fields-details{max-width:100%;overflow-wrap:anywhere}
+.log-view,.panel-events{overscroll-behavior:contain}
+.auto-scroll-control input:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.empty-state h2,.empty-state p{max-width:min(100%,560px);overflow-wrap:anywhere}
+.visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+@media(max-width:1000px){.toolbar{align-items:flex-end}.service-filter{flex:1 1 240px}.search-filter{flex:2 1 240px}.view-switch,.log-actions{margin-left:auto}}
+@media(max-width:700px){.app-shell{padding:16px 14px}.toolbar{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:end}.service-filter,.search-filter{grid-column:1/-1}.service-filter select{min-width:0}.view-switch{justify-self:start;margin:0}.log-actions{grid-column:1/-1;margin:0}.log-view.separated{grid-template-columns:minmax(0,1fr)}.buffer-notices{margin-top:-6px}.empty-state{padding:16px}}
+@media(max-height:650px){.service-panel{height:320px}.log-view{min-height:250px}}

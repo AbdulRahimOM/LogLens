@@ -16,4 +16,6 @@ LogStreamer may replay its recent-history snapshot after an SSE reconnect, so ev
 
 Search matches message text within the current buffer. Select **Show fields** on an event to inspect its structured fields; values are displayed as text.
 
+Connection and viewing-control status changes are announced to assistive technology, while individual log rows remain available to browse without live-announcing every incoming event.
+
 Run the unit checks with `npm test` (Node.js built-in test runner; no package installation is needed).
