@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { appendBounded, fetchServices, filterEvents, normalizeServiceResponse, parseEventData, preserveSelection, reconnectState, validateApiBaseUrl, validEvent } from '../app.js';
+import { appendBounded, clearEvents, createLogState, displayedEvents, fetchServices, filterEvents, normalizeServiceResponse, parseEventData, preserveSelection, receiveEvent, reconnectState, restoreScroll, setPaused, validateApiBaseUrl, validEvent } from '../app.js';
 
 test('validates runtime API origin and rejects path or non-http origins', () => {
   assert.equal(validateApiBaseUrl(' https://logs.example.com/ '), 'https://logs.example.com');
@@ -51,4 +51,60 @@ test('maps EventSource reconnect and closed states', () => {
   assert.equal(reconnectState(states.CONNECTING, states), 'Reconnecting');
   assert.equal(reconnectState(states.CLOSED, states), 'Closed');
   assert.equal(reconnectState(states.OPEN, states), 'Connected');
+});
+
+test('pause freezes displayed rows while buffering and counting incoming events', () => {
+  const state = createLogState(3);
+  const events = [1, 2, 3].map(_order => ({ _order }));
+  for (const event of events) receiveEvent(state, event);
+  setPaused(state, true);
+  receiveEvent(state, { _order: 4 });
+  receiveEvent(state, { _order: 5 });
+
+  assert.deepEqual(displayedEvents(state), events);
+  assert.deepEqual(state.events.map(event => event._order), [3, 4, 5]);
+  assert.equal(state.pausedCount, 2);
+  assert.equal(state.droppedCount, 2);
+  assert.equal(receiveEvent(state, { _order: 6 }).shouldRender, false);
+  assert.equal(state.pausedCount, 3);
+  setPaused(state, false);
+  assert.deepEqual(displayedEvents(state).map(event => event._order), [4, 5, 6]);
+});
+
+test('clear during pause empties retained and frozen events, then accepts new arrivals', () => {
+  const state = createLogState(2);
+  receiveEvent(state, { _order: 1 });
+  receiveEvent(state, { _order: 2 });
+  receiveEvent(state, { _order: 3 });
+  setPaused(state, true);
+  receiveEvent(state, { _order: 4 });
+  clearEvents(state);
+
+  assert.equal(state.droppedCount, 0);
+  assert.equal(state.pausedCount, 0);
+  assert.deepEqual(displayedEvents(state), []);
+  receiveEvent(state, { _order: 5 });
+  assert.deepEqual(displayedEvents(state), []);
+  assert.deepEqual(state.events.map(event => event._order), [5]);
+  setPaused(state, false);
+  assert.deepEqual(displayedEvents(state).map(event => event._order), [5]);
+});
+
+test('a new pause resets the paused-arrival count', () => {
+  const state = createLogState();
+  setPaused(state, true);
+  receiveEvent(state, { _order: 1 });
+  setPaused(state, false);
+  setPaused(state, true);
+  assert.equal(state.pausedCount, 0);
+});
+
+test('auto-scroll goes to the bottom; disabled mode restores independent panel offsets', () => {
+  const panels = new Map([['api', { scrollTop: 18, scrollHeight: 240 }], ['worker', { scrollTop: 42, scrollHeight: 360 }]]);
+  for (const [name, panel] of panels) restoreScroll(panel, panel.scrollTop, false);
+  assert.equal(panels.get('api').scrollTop, 18);
+  assert.equal(panels.get('worker').scrollTop, 42);
+  for (const panel of panels.values()) restoreScroll(panel, 0, true);
+  assert.equal(panels.get('api').scrollTop, 240);
+  assert.equal(panels.get('worker').scrollTop, 360);
 });

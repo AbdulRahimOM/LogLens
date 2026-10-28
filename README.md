@@ -10,4 +10,6 @@ A dependency-free static dashboard for live LogStreamer events.
 
 The page fetches `/api/services` and opens one `/api/logs/stream` EventSource. Service and severity filters and Combined/Separated layouts are local to the browser. At most 500 events are held in memory. The application never persists events and renders log values as text.
 
+Pause freezes the displayed rows while the stream and buffer continue updating. Resume shows the retained events; overflow and paused-arrival counts remain visible. Auto-scroll is enabled by default and can be disabled to keep scroll positions. Clear empties only LogLens’s browser buffer.
+
 Run the unit checks with `npm test` (Node.js built-in test runner; no package installation is needed).
