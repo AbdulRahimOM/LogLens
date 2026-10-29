@@ -1,5 +1,6 @@
 export const MAX_EVENTS = 500;
-export const LEVELS = new Set(['DEBUG', 'INFO', 'WARN', 'ERROR', 'UNKNOWN']);
+export const LEVELS = new Set(['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'UNKNOWN']);
+export const DEFAULT_LEVELS = new Set(['INFO', 'WARN', 'ERROR']);
 
 export function createLogState(capacity = MAX_EVENTS) {
   return { capacity, events: [], paused: false, pausedCount: 0, droppedCount: 0, frozenEvents: null, expandedEventKeys: new Set() };
@@ -92,10 +93,11 @@ export function restoreScroll(element, savedTop, autoScroll) {
   element.scrollTop = autoScroll ? element.scrollHeight : (savedTop ?? element.scrollTop);
 }
 
-export function filterEvents(events, selectedSources, level = 'ALL', search = '') {
+export function filterEvents(events, selectedSources, levels = DEFAULT_LEVELS, search = '') {
   const query = search.trim().toLowerCase();
+  const selectedLevels = levels instanceof Set ? levels : levels === 'ALL' ? null : new Set([levels]);
   return events.filter(event => selectedSources.has(event.source) &&
-    (level === 'ALL' || event.level === level) &&
+    (!selectedLevels || selectedLevels.has(event.level)) &&
     (!query || event.message.toLowerCase().includes(query)));
 }
 
@@ -157,10 +159,14 @@ if (typeof document !== 'undefined') {
     catch (error) { showNotice(error.message, true); return null; }
   })();
   const sourceSelect = byId('source-filter');
-  const levelSelect = byId('level-filter');
+  const levelFilters = [...document.querySelectorAll('[name="level-filter"]')];
+  const levelFilterContainer = byId('level-filter-container');
+  const levelFilterToggle = byId('level-filter-toggle');
+  const levelFilterMenu = byId('level-filter-menu');
+  const levelFilterSummary = byId('level-filter-summary');
   const logView = byId('log-view');
   const emptyState = byId('empty-state');
-  const state = { ...createLogState(), services: [], servicesLoaded: false, serviceLoadError: false, initialSelectionApplied: false, selected: null, view: parseInitialView(window.location.search), level: 'ALL', search: '', autoScroll: true, connection: 'Connecting', eventSource: null, nextOrder: 0, nextEventKey: 0, scrollPositions: new Map() };
+  const state = { ...createLogState(), services: [], servicesLoaded: false, serviceLoadError: false, initialSelectionApplied: false, selected: null, view: parseInitialView(window.location.search), levels: new Set(DEFAULT_LEVELS), search: '', autoScroll: true, connection: 'Connecting', eventSource: null, nextOrder: 0, nextEventKey: 0, scrollPositions: new Map() };
 
   function showNotice(message, error = false) {
     const notice = byId('notice'); notice.textContent = message; notice.hidden = false;
@@ -288,7 +294,7 @@ if (typeof document !== 'undefined') {
     if (!emptyState) return;
     const displayed = displayedEvents(state);
     const selected = state.selected ?? new Set(state.services.map(s => s.name));
-    const visibleCount = filterEvents(displayed, selected, state.level, state.search).length;
+    const visibleCount = filterEvents(displayed, selected, state.levels, state.search).length;
     const copy = emptyStateCopy({
       servicesLoaded: state.servicesLoaded, serviceLoadError: state.serviceLoadError,
       serviceCount: state.services.length, displayedCount: displayed.length,
@@ -303,7 +309,7 @@ if (typeof document !== 'undefined') {
     if (!state.autoScroll) rememberScrollPositions();
     const selected = state.selected ?? new Set(state.services.map(s => s.name));
     const displayed = displayedEvents(state);
-    const visible = filterEvents(displayed, selected, state.level, state.search);
+    const visible = filterEvents(displayed, selected, state.levels, state.search);
     logView.replaceChildren(); logView.className = `log-view ${state.view}`;
     if (state.view === 'combined') {
       const list = document.createElement('div'); list.className = 'combined-list';
@@ -348,7 +354,35 @@ if (typeof document !== 'undefined') {
   }
 
   sourceSelect.addEventListener('change', () => { state.selected = selectedValues(); render(); });
-  levelSelect.addEventListener('change', () => { state.level = levelSelect.value; render(); });
+  function updateLevelFilterSummary() {
+    const count = state.levels.size;
+    levelFilterSummary.textContent = count === LEVELS.size ? 'All levels' : count === 0 ? 'No levels' : `${count} selected`;
+  }
+  levelFilterToggle.addEventListener('click', () => {
+    const isOpen = levelFilterToggle.getAttribute('aria-expanded') === 'true';
+    levelFilterToggle.setAttribute('aria-expanded', String(!isOpen));
+    levelFilterMenu.hidden = isOpen;
+  });
+  for (const levelFilter of levelFilters) {
+    levelFilter.addEventListener('change', () => {
+      state.levels = new Set(levelFilters.filter(input => input.checked).map(input => input.value));
+      updateLevelFilterSummary();
+      render();
+    });
+  }
+  document.addEventListener('click', event => {
+    if (!levelFilterContainer.contains(event.target)) {
+      levelFilterMenu.hidden = true;
+      levelFilterToggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+  levelFilterContainer.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      levelFilterMenu.hidden = true;
+      levelFilterToggle.setAttribute('aria-expanded', 'false');
+      levelFilterToggle.focus();
+    }
+  });
   byId('message-search').addEventListener('input', event => { state.search = event.currentTarget.value; render(); });
   byId('combined-view').addEventListener('click', () => setView('combined'));
   byId('separated-view').addEventListener('click', () => setView('separated'));

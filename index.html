@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <title>LogLens — Live Logs</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=level-dropdown-1">
 </head>
 <body>
   <main class="app-shell">
@@ -18,7 +18,20 @@
     <section class="toolbar" aria-label="Log filters and display options">
       <label class="filter service-filter">Services <select id="source-filter" multiple size="3" aria-label="Filter by services" aria-describedby="source-filter-help"></select><span class="hint" id="source-filter-help">⌘/Ctrl-click to select multiple</span></label>
       <label class="filter search-filter">Message <input id="message-search" type="search" placeholder="Search messages" autocomplete="off" spellcheck="false"></label>
-      <label class="filter">Level <select id="level-filter" aria-label="Filter by level"><option value="ALL">All levels</option><option>DEBUG</option><option>INFO</option><option>WARN</option><option>ERROR</option><option>UNKNOWN</option></select></label>
+      <div class="filter level-filter" id="level-filter-container">
+        <span class="filter-label">Levels</span>
+        <button id="level-filter-toggle" class="level-filter-toggle" type="button" aria-controls="level-filter-menu" aria-expanded="false">
+          <span id="level-filter-summary">3 selected</span><span aria-hidden="true">⌄</span>
+        </button>
+        <fieldset class="level-menu" id="level-filter-menu" aria-label="Filter by log levels" hidden>
+          <label><input type="checkbox" name="level-filter" value="TRACE"> Trace</label>
+          <label><input type="checkbox" name="level-filter" value="DEBUG"> Debug</label>
+          <label><input type="checkbox" name="level-filter" value="INFO" checked> Info</label>
+          <label><input type="checkbox" name="level-filter" value="WARN" checked> Warn</label>
+          <label><input type="checkbox" name="level-filter" value="ERROR" checked> Error</label>
+          <label><input type="checkbox" name="level-filter" value="UNKNOWN"> Unknown</label>
+        </fieldset>
+      </div>
       <div class="view-switch" role="group" aria-label="Log layout"><button id="combined-view" class="active" type="button" aria-pressed="true">Combined</button><button id="separated-view" type="button" aria-pressed="false">Separated</button></div>
       <div class="log-actions" role="group" aria-label="Log viewing controls">
         <button id="pause-toggle" type="button" aria-pressed="false">Pause</button>
@@ -39,6 +52,6 @@
     <footer><span id="event-count">0 events</span><span>Recent events · in-memory buffer: 500</span></footer>
   </main>
   <script src="config.js"></script>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=level-dropdown-1"></script>
 </body>
 </html>

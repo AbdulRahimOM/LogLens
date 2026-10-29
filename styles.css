@@ -4,6 +4,16 @@
 .log-actions button{white-space:nowrap}
 .log-actions #pause-toggle.is-paused{background:#352b19;color:#f1c76b}
 .auto-scroll-control{display:flex;align-items:center;gap:6px;padding:0 7px;color:#aeb8c8;font-size:11px;white-space:nowrap;cursor:pointer}
+.level-filter{position:relative;z-index:5;min-width:144px;gap:7px}
+.filter-label{color:#aeb8c8;font-size:11px;font-weight:650;text-transform:uppercase;letter-spacing:.08em}
+.level-filter-toggle{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:38px;padding:0 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:#e8edf6;text-align:left}
+.level-filter-toggle:hover{background:var(--surface-raised)}
+.level-menu{position:absolute;top:100%;left:0;z-index:20;display:grid;gap:2px;min-width:100%;margin:5px 0 0;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--surface-raised);box-shadow:0 12px 28px #0008}
+.level-menu[hidden]{display:none}
+.level-menu label{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:5px;color:#cbd4e3;font-size:12px;white-space:nowrap;cursor:pointer}
+.level-menu label:hover{background:#222b39}
+.level-menu input[type="checkbox"]{flex:0 0 14px;width:14px;height:14px;min-width:14px;min-height:14px;margin:0;accent-color:var(--accent)}
+.level-trace{color:#c5a6ff}
 .auto-scroll-control input{accent-color:var(--accent);margin:0}
 .buffer-notices{display:flex;flex-wrap:wrap;gap:8px;margin:-11px 0 12px;min-height:0}
 .buffer-notice{padding:5px 9px;border-radius:6px;font-size:11px}
