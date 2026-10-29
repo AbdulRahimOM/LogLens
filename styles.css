@@ -4,15 +4,19 @@
 .log-actions button{white-space:nowrap}
 .log-actions #pause-toggle.is-paused{background:#352b19;color:#f1c76b}
 .auto-scroll-control{display:flex;align-items:center;gap:6px;padding:0 7px;color:#aeb8c8;font-size:11px;white-space:nowrap;cursor:pointer}
-.level-filter{position:relative;z-index:5;min-width:144px;gap:7px}
+.level-filter,.service-filter{position:relative;z-index:5;gap:7px}
+.level-filter{min-width:144px}
+.service-filter{min-width:230px}
 .filter-label{color:#aeb8c8;font-size:11px;font-weight:650;text-transform:uppercase;letter-spacing:.08em}
-.level-filter-toggle{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:38px;padding:0 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:#e8edf6;text-align:left}
-.level-filter-toggle:hover{background:var(--surface-raised)}
-.level-menu{position:absolute;top:100%;left:0;z-index:20;display:grid;gap:2px;min-width:100%;margin:5px 0 0;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--surface-raised);box-shadow:0 12px 28px #0008}
-.level-menu[hidden]{display:none}
-.level-menu label{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:5px;color:#cbd4e3;font-size:12px;white-space:nowrap;cursor:pointer}
-.level-menu label:hover{background:#222b39}
-.level-menu input[type="checkbox"]{flex:0 0 14px;width:14px;height:14px;min-width:14px;min-height:14px;margin:0;accent-color:var(--accent)}
+.level-filter-toggle,.service-filter-toggle{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:38px;padding:0 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:#e8edf6;text-align:left}
+.level-filter-toggle:hover,.service-filter-toggle:hover{background:var(--surface-raised)}
+.level-menu,.service-menu{position:absolute;top:100%;left:0;z-index:20;display:grid;gap:2px;min-width:100%;max-height:320px;overflow:auto;margin:5px 0 0;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--surface-raised);box-shadow:0 12px 28px #0008}
+.level-menu[hidden],.service-menu[hidden]{display:none}
+.level-menu label,.service-menu label{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:5px;color:#cbd4e3;font-size:12px;white-space:nowrap;cursor:pointer}
+.level-menu label:hover,.service-menu label:hover{background:#222b39}
+.level-menu input[type="checkbox"],.service-menu input[type="checkbox"]{flex:0 0 14px;width:14px;height:14px;min-width:14px;min-height:14px;margin:0;accent-color:var(--accent)}
+.service-option-name{flex:1}
+.service-option-state{color:var(--muted);font-size:10px;text-transform:none;letter-spacing:0}
 .level-trace{color:#c5a6ff}
 .auto-scroll-control input{accent-color:var(--accent);margin:0}
 .buffer-notices{display:flex;flex-wrap:wrap;gap:8px;margin:-11px 0 12px;min-height:0}
@@ -49,5 +53,5 @@
 .empty-state h2,.empty-state p{max-width:min(100%,560px);overflow-wrap:anywhere}
 .visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 @media(max-width:1000px){.toolbar{align-items:flex-end}.service-filter{flex:1 1 240px}.search-filter{flex:2 1 240px}.view-switch,.log-actions{margin-left:auto}}
-@media(max-width:700px){.app-shell{padding:16px 14px}.toolbar{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:end}.service-filter,.search-filter{grid-column:1/-1}.service-filter select{min-width:0}.view-switch{justify-self:start;margin:0}.log-actions{grid-column:1/-1;margin:0}.log-view.separated{grid-template-columns:minmax(0,1fr)}.buffer-notices{margin-top:-6px}.empty-state{padding:16px}}
+@media(max-width:700px){.app-shell{padding:16px 14px}.toolbar{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:end}.service-filter,.search-filter{grid-column:1/-1}.view-switch{justify-self:start;margin:0}.log-actions{grid-column:1/-1;margin:0}.log-view.separated{grid-template-columns:minmax(0,1fr)}.buffer-notices{margin-top:-6px}.empty-state{padding:16px}}
 @media(max-height:650px){.service-panel{height:320px}.log-view{min-height:250px}}

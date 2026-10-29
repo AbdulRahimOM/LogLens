@@ -190,7 +190,9 @@ test('page exposes accessible controls, focused log navigation, and concise live
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
   const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
-  assert.match(html, /id="source-filter"[^>]*aria-describedby="source-filter-help"/);
+  assert.match(html, /id="service-filter-toggle"[^>]*aria-controls="service-filter-menu"/);
+  assert.match(html, /id="service-filter-menu"[^>]*aria-label="Filter by services"/);
+  assert.doesNotMatch(html, /<select id="source-filter"/);
   assert.match(html, /id="message-search" type="search"/);
   assert.match(html, /id="log-view" class="log-view" aria-live="off"/);
   assert.match(html, /id="empty-state" role="status" aria-live="polite"/);

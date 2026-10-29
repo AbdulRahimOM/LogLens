@@ -158,7 +158,10 @@ if (typeof document !== 'undefined') {
     try { return validateApiBaseUrl(window.LOG_LENS_CONFIG?.apiBaseUrl); }
     catch (error) { showNotice(error.message, true); return null; }
   })();
-  const sourceSelect = byId('source-filter');
+  const serviceFilterContainer = byId('service-filter-container');
+  const serviceFilterToggle = byId('service-filter-toggle');
+  const serviceFilterMenu = byId('service-filter-menu');
+  const serviceFilterSummary = byId('service-filter-summary');
   const levelFilters = [...document.querySelectorAll('[name="level-filter"]')];
   const levelFilterContainer = byId('level-filter-container');
   const levelFilterToggle = byId('level-filter-toggle');
@@ -182,21 +185,43 @@ if (typeof document !== 'undefined') {
   function announceStatus(message) {
     byId('status-announcer').textContent = message;
   }
-  function selectedValues() { return new Set([...sourceSelect.options].filter(o => o.selected).map(o => o.value)); }
+  function selectedServiceValues() {
+    return new Set([...serviceFilterMenu.querySelectorAll('input[name="service-filter"]')]
+      .filter(input => input.checked).map(input => input.value));
+  }
+  function updateServiceFilterSummary() {
+    const selectedCount = state.selected?.size ?? 0;
+    serviceFilterSummary.textContent = state.services.length > 0 && selectedCount === state.services.length
+      ? 'All services'
+      : selectedCount === 0 ? 'No services' : `${selectedCount} selected`;
+  }
+  function renderServiceOptions() {
+    serviceFilterMenu.replaceChildren();
+    for (const service of state.services) {
+      const label = document.createElement('label');
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.name = 'service-filter';
+      checkbox.value = service.name;
+      checkbox.checked = state.selected.has(service.name);
+      const name = document.createElement('span');
+      name.className = 'service-option-name';
+      name.textContent = service.name;
+      const status = document.createElement('span');
+      status.className = 'service-option-state';
+      status.textContent = service.state;
+      label.append(checkbox, name, status);
+      serviceFilterMenu.append(label);
+    }
+    updateServiceFilterSummary();
+  }
   function updateServiceOptions(services) {
     state.selected = state.initialSelectionApplied
       ? preserveSelection(state.selected, services)
       : parseInitialServices(window.location.search, services);
     state.initialSelectionApplied = true;
     state.services = services;
-    sourceSelect.replaceChildren();
-    for (const service of services) {
-      const option = document.createElement('option');
-      option.value = service.name;
-      option.textContent = `${service.name} · ${service.state}`;
-      option.selected = state.selected.has(service.name);
-      sourceSelect.append(option);
-    }
+    renderServiceOptions();
     render();
   }
   function updateControls() {
@@ -353,7 +378,17 @@ if (typeof document !== 'undefined') {
     };
   }
 
-  sourceSelect.addEventListener('change', () => { state.selected = selectedValues(); render(); });
+  serviceFilterToggle.addEventListener('click', () => {
+    const isOpen = serviceFilterToggle.getAttribute('aria-expanded') === 'true';
+    serviceFilterToggle.setAttribute('aria-expanded', String(!isOpen));
+    serviceFilterMenu.hidden = isOpen;
+  });
+  serviceFilterMenu.addEventListener('change', event => {
+    if (!event.target.matches('input[name="service-filter"]')) return;
+    state.selected = selectedServiceValues();
+    updateServiceFilterSummary();
+    render();
+  });
   function updateLevelFilterSummary() {
     const count = state.levels.size;
     levelFilterSummary.textContent = count === LEVELS.size ? 'All levels' : count === 0 ? 'No levels' : `${count} selected`;
@@ -371,9 +406,20 @@ if (typeof document !== 'undefined') {
     });
   }
   document.addEventListener('click', event => {
+    if (!serviceFilterContainer.contains(event.target)) {
+      serviceFilterMenu.hidden = true;
+      serviceFilterToggle.setAttribute('aria-expanded', 'false');
+    }
     if (!levelFilterContainer.contains(event.target)) {
       levelFilterMenu.hidden = true;
       levelFilterToggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+  serviceFilterContainer.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      serviceFilterMenu.hidden = true;
+      serviceFilterToggle.setAttribute('aria-expanded', 'false');
+      serviceFilterToggle.focus();
     }
   });
   levelFilterContainer.addEventListener('keydown', event => {
