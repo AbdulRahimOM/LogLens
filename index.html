@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <title>LogLens — Live Logs</title>
-  <link rel="stylesheet" href="styles.css?v=service-status-2">
+  <link rel="stylesheet" href="styles.css?v=outer-grid-scrollbar-1">
 </head>
 <body>
   <main class="app-shell">
@@ -54,10 +54,11 @@
     <section class="workspace" aria-label="Log events">
       <div class="empty-state" id="empty-state" role="status" aria-live="polite" aria-atomic="true"><span class="empty-icon" aria-hidden="true">⌁</span><h2 id="empty-title">Loading services</h2><p id="empty-message">Fetching configured sources from LogStreamer.</p></div>
       <div id="log-view" class="log-view" aria-live="off"></div>
+      <div id="grid-scrollbar" class="grid-scrollbar" role="scrollbar" aria-label="Separated logs grid" aria-controls="log-view" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="No scrolling needed" tabindex="0" hidden><div id="grid-scrollbar-thumb" class="grid-scrollbar-thumb"></div></div>
     </section>
     <footer><span id="event-count">0 events</span><span>Recent events · in-memory buffer: 500 per service</span></footer>
   </main>
   <script src="config.js"></script>
-  <script type="module" src="app.js?v=levels-ingress-1"></script>
+  <script type="module" src="app.js?v=outer-grid-scrollbar-1"></script>
 </body>
 </html>

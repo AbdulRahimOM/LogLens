@@ -57,3 +57,11 @@
 @media(max-width:1000px){.toolbar{align-items:flex-end}.service-filter{flex:1 1 240px}.search-filter{flex:2 1 240px}.view-switch,.log-actions{margin-left:auto}}
 @media(max-width:700px){.app-shell{padding:16px 14px}.toolbar{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:end}.service-filter,.search-filter{grid-column:1/-1}.view-switch{justify-self:start;margin:0}.log-actions{grid-column:1/-1;margin:0}.log-view.separated{grid-template-columns:minmax(0,1fr)}.buffer-notices{margin-top:-6px}.empty-state{padding:16px}}
 @media(max-height:650px){.service-panel{height:320px}.log-view{min-height:250px}}
+.log-view.separated{padding-right:30px;scrollbar-width:none}
+.log-view.separated::-webkit-scrollbar{display:none;width:0;height:0}
+.grid-scrollbar{position:absolute;z-index:5;top:8px;right:7px;bottom:8px;width:13px;border:1px solid #423866;border-radius:8px;background:#171e2a;touch-action:none;cursor:pointer;user-select:none}
+.grid-scrollbar[hidden]{display:none}
+.grid-scrollbar-thumb{position:absolute;top:0;left:2px;right:2px;min-height:32px;border-radius:6px;background:#9c83ff;box-shadow:0 0 7px #8063e455;cursor:grab}
+.grid-scrollbar-thumb:hover{background:#b5a3ff}
+.grid-scrollbar:active .grid-scrollbar-thumb,.grid-scrollbar-thumb:active{cursor:grabbing}
+.grid-scrollbar:focus-visible{outline:2px solid #9c83ff;outline-offset:2px}

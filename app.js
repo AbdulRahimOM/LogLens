@@ -200,6 +200,8 @@ if (typeof document !== 'undefined') {
   const levelFilterMenu = byId('level-filter-menu');
   const levelFilterSummary = byId('level-filter-summary');
   const logView = byId('log-view');
+  const gridScrollbar = byId('grid-scrollbar');
+  const gridScrollbarThumb = byId('grid-scrollbar-thumb');
   const emptyState = byId('empty-state');
   const state = { ...createLogState(), services: [], servicesLoaded: false, serviceLoadError: false, initialSelectionApplied: false, selected: null, view: parseInitialView(window.location.search), levels: new Set(DEFAULT_LEVELS), search: '', autoScroll: true, connection: 'Connecting', eventSource: null, nextOrder: 0, nextEventKey: 0, scrollPositions: new Map() };
 
@@ -359,6 +361,29 @@ if (typeof document !== 'undefined') {
       restoreScroll(events, state.scrollPositions.get(`separated:${panel.dataset.source}`), state.autoScroll);
     }
   }
+  function updateGridScrollbar() {
+    if (state.view !== 'separated' || !gridScrollbar || !gridScrollbarThumb) {
+      if (gridScrollbar) gridScrollbar.hidden = true;
+      return;
+    }
+    const scrollHeight = logView.scrollHeight;
+    const maxScroll = Math.max(0, scrollHeight - logView.clientHeight);
+    if (maxScroll <= 0) {
+      gridScrollbar.hidden = true;
+      return;
+    }
+    gridScrollbar.hidden = false;
+    const trackHeight = gridScrollbar.clientHeight;
+    if (!trackHeight) return;
+    const thumbHeight = maxScroll === 0 ? trackHeight : Math.min(trackHeight, Math.max(32, trackHeight * logView.clientHeight / scrollHeight));
+    const thumbTravel = trackHeight - thumbHeight;
+    const progress = maxScroll === 0 ? 0 : Math.min(1, logView.scrollTop / maxScroll);
+    gridScrollbarThumb.style.height = `${thumbHeight}px`;
+    gridScrollbarThumb.style.transform = `translateY(${thumbTravel * progress}px)`;
+    gridScrollbar.setAttribute('aria-valuemax', String(Math.round(maxScroll)));
+    gridScrollbar.setAttribute('aria-valuenow', String(Math.round(logView.scrollTop)));
+    gridScrollbar.setAttribute('aria-valuetext', maxScroll === 0 ? 'No scrolling needed' : `${Math.round(progress * 100)}%`);
+  }
   function updateEmptyState() {
     if (!emptyState) return;
     const displayed = displayedEvents(state);
@@ -404,6 +429,7 @@ if (typeof document !== 'undefined') {
     updateEmptyState();
     restoreVisibleScroll();
     updateControls();
+    updateGridScrollbar();
   }
   function connect() {
     setConnection('Connecting');
@@ -492,6 +518,49 @@ if (typeof document !== 'undefined') {
   byId('auto-scroll').addEventListener('change', event => {
     state.autoScroll = event.currentTarget.checked;
     if (state.autoScroll) restoreVisibleScroll();
+    updateGridScrollbar();
+  });
+  logView.addEventListener('scroll', updateGridScrollbar, { passive: true });
+  window.addEventListener('resize', updateGridScrollbar);
+  let scrollbarDrag = null;
+  function setOuterScrollFromPointer(clientY) {
+    const rect = gridScrollbar.getBoundingClientRect();
+    const thumbHeight = gridScrollbarThumb.offsetHeight;
+    const travel = Math.max(0, rect.height - thumbHeight);
+    const offset = Math.max(0, Math.min(travel, clientY - rect.top - scrollbarDrag.grabOffset));
+    const maxScroll = Math.max(0, logView.scrollHeight - logView.clientHeight);
+    logView.scrollTop = travel === 0 ? 0 : offset / travel * maxScroll;
+  }
+  gridScrollbar.addEventListener('pointerdown', event => {
+    if (event.target === gridScrollbarThumb) {
+      const thumbRect = gridScrollbarThumb.getBoundingClientRect();
+      scrollbarDrag = { pointerId: event.pointerId, grabOffset: event.clientY - thumbRect.top };
+      gridScrollbar.setPointerCapture(event.pointerId);
+      event.preventDefault();
+      return;
+    }
+    const rect = gridScrollbar.getBoundingClientRect();
+    scrollbarDrag = { pointerId: event.pointerId, grabOffset: gridScrollbarThumb.offsetHeight / 2 };
+    setOuterScrollFromPointer(event.clientY);
+    scrollbarDrag = null;
+    event.preventDefault();
+  });
+  gridScrollbar.addEventListener('pointermove', event => {
+    if (scrollbarDrag?.pointerId === event.pointerId) setOuterScrollFromPointer(event.clientY);
+  });
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+    gridScrollbar.addEventListener(type, event => { if (scrollbarDrag?.pointerId === event.pointerId) scrollbarDrag = null; });
+  }
+  gridScrollbar.addEventListener('keydown', event => {
+    const page = logView.clientHeight;
+    const movements = { ArrowDown: 40, ArrowUp: -40, PageDown: page, PageUp: -page, Home: -Infinity, End: Infinity };
+    if (!(event.key in movements)) return;
+    event.preventDefault();
+    const movement = movements[event.key];
+    if (movement === -Infinity) logView.scrollTop = 0;
+    else if (movement === Infinity) logView.scrollTop = logView.scrollHeight;
+    else logView.scrollTop += movement;
+    updateGridScrollbar();
   });
   function setView(view) {
     state.view = view;
