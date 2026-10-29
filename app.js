@@ -307,12 +307,14 @@ if (typeof document !== 'undefined') {
     }
   }
   function restoreVisibleScroll() {
-    restoreScroll(logView, state.scrollPositions.get(`${state.view}:outer`), state.autoScroll);
-    if (state.view === 'separated') {
-      for (const panel of logView.querySelectorAll('.service-panel')) {
-        const events = panel.querySelector('.panel-events');
-        restoreScroll(events, state.scrollPositions.get(`separated:${panel.dataset.source}`), state.autoScroll);
-      }
+    if (state.view === 'combined') {
+      restoreScroll(logView, state.scrollPositions.get('combined:outer'), state.autoScroll);
+      return;
+    }
+    restoreScroll(logView, state.scrollPositions.get('separated:outer'), false);
+    for (const panel of logView.querySelectorAll('.service-panel')) {
+      const events = panel.querySelector('.panel-events');
+      restoreScroll(events, state.scrollPositions.get(`separated:${panel.dataset.source}`), state.autoScroll);
     }
   }
   function updateEmptyState() {
