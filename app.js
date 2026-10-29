@@ -3,7 +3,11 @@ export const LEVELS = new Set(['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'UNKNO
 export const DEFAULT_LEVELS = new Set(['INFO', 'WARN', 'ERROR']);
 
 export function createLogState(capacity = MAX_EVENTS) {
-  return { capacity, events: [], paused: false, pausedCount: 0, droppedCount: 0, frozenEvents: null, expandedEventKeys: new Set() };
+  return {
+    capacity, eventsBySource: new Map(), paused: false, pausedCount: 0,
+    droppedCount: 0, droppedBySource: new Map(), frozenEventsBySource: null,
+    expandedEventKeys: new Set()
+  };
 }
 
 export function validateApiBaseUrl(value) {
@@ -53,16 +57,29 @@ export function appendBounded(events, event, capacity = MAX_EVENTS) {
   return next.length > capacity ? next.slice(next.length - capacity) : next;
 }
 
+function flattenEventBuffers(buffers) {
+  return [...buffers.values()].flat().sort((a, b) => (a._order ?? 0) - (b._order ?? 0));
+}
+
+export function bufferedEventCount(state, buffers = state.eventsBySource) {
+  return [...buffers.values()].reduce((total, events) => total + events.length, 0);
+}
+
 export function receiveEvent(state, event) {
-  const overflow = state.events.length >= state.capacity;
-  state.events = appendBounded(state.events, event, state.capacity);
-  if (overflow) state.droppedCount += 1;
+  const source = String(event.source ?? '');
+  const events = state.eventsBySource.get(source) ?? [];
+  const overflow = events.length >= state.capacity;
+  state.eventsBySource.set(source, appendBounded(events, event, state.capacity));
+  if (overflow) {
+    state.droppedCount += 1;
+    state.droppedBySource.set(source, (state.droppedBySource.get(source) ?? 0) + 1);
+  }
   if (state.paused) state.pausedCount += 1;
-  const retainedKeys = new Set(state.events.map(item => item._key).filter(key => key !== undefined));
+  const retainedKeys = new Set(flattenEventBuffers(state.eventsBySource).map(item => item._key).filter(key => key !== undefined));
   for (const key of state.expandedEventKeys) {
     if (!retainedKeys.has(key)) state.expandedEventKeys.delete(key);
   }
-  return { overflow, shouldRender: !state.paused };
+  return { overflow, source, shouldRender: !state.paused };
 }
 
 export function setPaused(state, paused) {
@@ -70,23 +87,24 @@ export function setPaused(state, paused) {
   if (paused) {
     state.paused = true;
     state.pausedCount = 0;
-    state.frozenEvents = [...state.events];
+    state.frozenEventsBySource = new Map([...state.eventsBySource].map(([source, events]) => [source, [...events]]));
   } else {
     state.paused = false;
-    state.frozenEvents = null;
+    state.frozenEventsBySource = null;
   }
 }
 
 export function clearEvents(state) {
-  state.events = [];
+  state.eventsBySource.clear();
   state.droppedCount = 0;
+  state.droppedBySource.clear();
   state.pausedCount = 0;
   state.expandedEventKeys.clear();
-  if (state.paused) state.frozenEvents = [];
+  if (state.paused) state.frozenEventsBySource = new Map();
 }
 
 export function displayedEvents(state) {
-  return state.paused ? state.frozenEvents : state.events;
+  return flattenEventBuffers(state.paused ? state.frozenEventsBySource : state.eventsBySource);
 }
 
 export function restoreScroll(element, savedTop, autoScroll) {
@@ -236,9 +254,19 @@ if (typeof document !== 'undefined') {
       ? `Paused · ${state.pausedCount} event${state.pausedCount === 1 ? '' : 's'} received`
       : `${state.pausedCount} event${state.pausedCount === 1 ? '' : 's'} received while paused`;
     const droppedStatus = byId('dropped-status');
-    droppedStatus.hidden = state.droppedCount === 0;
-    droppedStatus.textContent = `${state.droppedCount} older event${state.droppedCount === 1 ? '' : 's'} dropped · buffer holds the latest ${state.capacity}`;
-    byId('event-count').textContent = `${state.events.length} buffered event${state.events.length === 1 ? '' : 's'}`;
+    droppedStatus.hidden = state.droppedCount === 0 || state.view !== 'combined';
+    const droppedSummary = [...state.droppedBySource]
+      .map(([source, count]) => `${source || 'unknown'}: ${count}`)
+      .join(' · ');
+    droppedStatus.textContent = `${state.droppedCount} older log${state.droppedCount === 1 ? '' : 's'} dropped (${droppedSummary}); keeping the latest ${state.capacity} per service`;
+    for (const panel of logView.querySelectorAll('.service-panel')) {
+      const indicator = panel.querySelector('.service-dropped');
+      const count = state.droppedBySource.get(panel.dataset.source) ?? 0;
+      indicator.hidden = count === 0;
+      indicator.textContent = `${count} older log${count === 1 ? '' : 's'} dropped`;
+    }
+    const eventCount = bufferedEventCount(state);
+    byId('event-count').textContent = `${eventCount} buffered event${eventCount === 1 ? '' : 's'}`;
   }
   async function refreshServices() {
     try {
@@ -350,7 +378,8 @@ if (typeof document !== 'undefined') {
         const heading = document.createElement('header'); heading.className = 'panel-heading';
         const title = document.createElement('h2'); title.textContent = service.name;
         const serviceState = document.createElement('span'); serviceState.className = 'service-state'; serviceState.textContent = service.state;
-        heading.append(title, serviceState); panel.append(heading);
+        const dropped = document.createElement('span'); dropped.className = 'service-dropped'; dropped.hidden = true;
+        heading.append(title, dropped, serviceState); panel.append(heading);
         const list = document.createElement('div'); list.className = 'panel-events';
         const serviceEvents = visible.filter(event => event.source === service.name);
         if (!serviceEvents.length) { const empty = document.createElement('p'); empty.className = 'panel-empty'; empty.textContent = 'No matching events'; list.append(empty); }
@@ -374,7 +403,7 @@ if (typeof document !== 'undefined') {
       const parsedOrder = Number.parseInt(message.lastEventId, 10);
       const order = Number.isSafeInteger(parsedOrder) ? parsedOrder : state.nextOrder++;
       const result = receiveEvent(state, { ...event, _order: order, _key: state.nextEventKey++ });
-      if (result.overflow && state.droppedCount === 1) announceStatus('The log buffer is full. Older events are being dropped.');
+      if (result.overflow && state.droppedBySource.get(result.source) === 1) announceStatus(`The ${result.source} buffer is full. Its oldest log was dropped.`);
       if (result.shouldRender) render();
       else updateControls();
     };

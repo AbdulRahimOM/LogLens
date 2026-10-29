@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { appendBounded, clearEvents, createLogState, displayedEvents, emptyStateCopy, fetchServices, filterEvents, formatStructuredFields, hasStructuredFields, normalizeServiceResponse, parseEventData, parseInitialServices, parseInitialView, preserveSelection, receiveEvent, reconnectState, restoreScroll, setPaused, toggleExpandedEvent, validateApiBaseUrl, validEvent } from '../app.js';
+import { appendBounded, bufferedEventCount, clearEvents, createLogState, displayedEvents, emptyStateCopy, fetchServices, filterEvents, formatStructuredFields, hasStructuredFields, normalizeServiceResponse, parseEventData, parseInitialServices, parseInitialView, preserveSelection, receiveEvent, reconnectState, restoreScroll, setPaused, toggleExpandedEvent, validateApiBaseUrl, validEvent } from '../app.js';
 
 test('validates runtime API origin and rejects path or non-http origins', () => {
   assert.equal(validateApiBaseUrl(' https://logs.example.com/ '), 'https://logs.example.com');
@@ -65,6 +65,23 @@ test('bounded buffer retains latest events in incoming order', () => {
   assert.equal(full.at(-1), 500);
 });
 
+test('per-service buffers isolate overflow and combined events stay globally ordered', () => {
+  const state = createLogState(2);
+  receiveEvent(state, { source: 'api', _order: 1 });
+  receiveEvent(state, { source: 'worker', _order: 2 });
+  receiveEvent(state, { source: 'api', _order: 3 });
+  receiveEvent(state, { source: 'api', _order: 4 });
+  receiveEvent(state, { source: 'worker', _order: 5 });
+
+  assert.deepEqual(displayedEvents(state).map(event => `${event.source}:${event._order}`), [
+    'worker:2', 'api:3', 'api:4', 'worker:5'
+  ]);
+  assert.equal(state.droppedBySource.get('api'), 1);
+  assert.equal(state.droppedBySource.get('worker') ?? 0, 0);
+  assert.equal(state.droppedCount, 1);
+  assert.equal(bufferedEventCount(state), 4);
+});
+
 test('rejects malformed event records', () => {
   assert.equal(validEvent({ timestamp: 'now', source: 'api', level: 'INFO', message: 'ok' }), true);
   assert.equal(validEvent({ timestamp: 1, source: 'api' }), false);
@@ -89,9 +106,10 @@ test('pause freezes displayed rows while buffering and counting incoming events'
   receiveEvent(state, { _order: 5 });
 
   assert.deepEqual(displayedEvents(state), events);
-  assert.deepEqual(state.events.map(event => event._order), [3, 4, 5]);
+  assert.deepEqual(state.eventsBySource.get(''), [events[2], { _order: 4 }, { _order: 5 }]);
   assert.equal(state.pausedCount, 2);
   assert.equal(state.droppedCount, 2);
+  assert.equal(state.droppedBySource.get(''), 2);
   assert.equal(receiveEvent(state, { _order: 6 }).shouldRender, false);
   assert.equal(state.pausedCount, 3);
   setPaused(state, false);
@@ -112,9 +130,36 @@ test('clear during pause empties retained and frozen events, then accepts new ar
   assert.deepEqual(displayedEvents(state), []);
   receiveEvent(state, { _order: 5 });
   assert.deepEqual(displayedEvents(state), []);
-  assert.deepEqual(state.events.map(event => event._order), [5]);
+  assert.deepEqual(state.eventsBySource.get(''), [{ _order: 5 }]);
+  assert.equal(bufferedEventCount(state), 1);
   setPaused(state, false);
   assert.deepEqual(displayedEvents(state).map(event => event._order), [5]);
+});
+
+test('pause and clear preserve independent buffers across services', () => {
+  const state = createLogState(2);
+  receiveEvent(state, { source: 'api', _order: 1 });
+  receiveEvent(state, { source: 'worker', _order: 2 });
+  setPaused(state, true);
+  receiveEvent(state, { source: 'api', _order: 3 });
+  receiveEvent(state, { source: 'worker', _order: 4 });
+  receiveEvent(state, { source: 'api', _order: 5 });
+
+  assert.deepEqual(displayedEvents(state).map(event => event._order), [1, 2]);
+  assert.deepEqual(state.eventsBySource.get('api').map(event => event._order), [3, 5]);
+  assert.deepEqual(state.eventsBySource.get('worker').map(event => event._order), [2, 4]);
+  assert.equal(state.droppedBySource.get('api'), 1);
+  assert.equal(state.pausedCount, 3);
+
+  clearEvents(state);
+  assert.equal(state.eventsBySource.size, 0);
+  assert.equal(state.droppedBySource.size, 0);
+  assert.deepEqual(displayedEvents(state), []);
+  receiveEvent(state, { source: 'api', _order: 6 });
+  receiveEvent(state, { source: 'worker', _order: 7 });
+  assert.deepEqual(displayedEvents(state), []);
+  setPaused(state, false);
+  assert.deepEqual(displayedEvents(state).map(event => event._order), [6, 7]);
 });
 
 test('a new pause resets the paused-arrival count', () => {

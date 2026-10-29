@@ -43,8 +43,9 @@
 .log-view.separated{grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));overscroll-behavior:contain}
 .service-panel{min-width:0}
 .panel-heading{min-width:0;gap:10px}
-.panel-heading h2{min-width:0}
-.service-state{flex:0 0 auto;white-space:nowrap}
+.panel-heading h2{flex:1;min-width:0}
+.service-state{flex:0 0 auto;margin-left:auto;white-space:nowrap}
+.service-dropped{flex:0 0 auto;color:#ffabb7;font-size:10px;white-space:nowrap}
 .log-meta{flex-wrap:wrap}
 .service-name,.origin{min-width:0;overflow-wrap:anywhere}
 .message,.fields-details{max-width:100%;overflow-wrap:anywhere}

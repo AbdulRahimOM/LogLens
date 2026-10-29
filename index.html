@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <title>LogLens — Live Logs</title>
-  <link rel="stylesheet" href="styles.css?v=scroll-chain-1">
+  <link rel="stylesheet" href="styles.css?v=service-status-2">
 </head>
 <body>
   <main class="app-shell">
@@ -55,9 +55,9 @@
       <div class="empty-state" id="empty-state" role="status" aria-live="polite" aria-atomic="true"><span class="empty-icon" aria-hidden="true">⌁</span><h2 id="empty-title">Loading services</h2><p id="empty-message">Fetching configured sources from LogStreamer.</p></div>
       <div id="log-view" class="log-view" aria-live="off"></div>
     </section>
-    <footer><span id="event-count">0 events</span><span>Recent events · in-memory buffer: 500</span></footer>
+    <footer><span id="event-count">0 events</span><span>Recent events · in-memory buffer: 500 per service</span></footer>
   </main>
   <script src="config.js"></script>
-  <script type="module" src="app.js?v=service-auto-scroll-1"></script>
+  <script type="module" src="app.js?v=service-status-2"></script>
 </body>
 </html>
