@@ -45,7 +45,7 @@ export function preserveSelection(previous, services) {
 }
 
 export function parseInitialView(search = '') {
-  return new URLSearchParams(search).get('view') === 'separated' ? 'separated' : 'combined';
+  return new URLSearchParams(search).get('view') === 'combined' ? 'combined' : 'separated';
 }
 
 export function parseInitialServices(search = '', services = []) {
