@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { appendBounded, bufferedEventCount, clearEvents, createLogState, displayedEvents, emptyStateCopy, fetchServices, filterEvents, formatStructuredFields, hasStructuredFields, normalizeServiceResponse, parseEventData, parseInitialServices, parseInitialView, preserveSelection, receiveEvent, reconnectState, restoreScroll, setPaused, toggleExpandedEvent, validateApiBaseUrl, validEvent } from '../app.js';
+import { appendBounded, bufferedEventCount, clearEvents, createLogState, displayedEvents, emptyStateCopy, fetchServices, filterEvents, formatStructuredFields, hasStructuredFields, normalizeLogLevel, normalizeServiceResponse, parseEventData, parseInitialServices, parseInitialView, preserveSelection, receiveEvent, receiveSelectedEvent, reconnectState, restoreScroll, setPaused, toggleExpandedEvent, validateApiBaseUrl, validEvent } from '../app.js';
 
 test('validates runtime API origin and rejects path or non-http origins', () => {
   assert.equal(validateApiBaseUrl(' https://logs.example.com/ '), 'https://logs.example.com');
@@ -80,6 +80,41 @@ test('per-service buffers isolate overflow and combined events stay globally ord
   assert.equal(state.droppedBySource.get('worker') ?? 0, 0);
   assert.equal(state.droppedCount, 1);
   assert.equal(bufferedEventCount(state), 4);
+});
+
+test('unselected levels are discarded before buffering and do not count as paused or dropped', () => {
+  const state = createLogState(1);
+  const selectedLevels = new Set(['INFO']);
+  assert.equal(normalizeLogLevel('info'), 'INFO');
+  assert.equal(normalizeLogLevel('custom'), 'UNKNOWN');
+  assert.equal(receiveSelectedEvent(state, { source: 'api', level: 'INFO', _order: 1 }, selectedLevels).accepted, true);
+
+  setPaused(state, true);
+  const skipped = receiveSelectedEvent(state, { source: 'api', level: 'DEBUG', _order: 2 }, selectedLevels);
+  assert.equal(skipped.accepted, false);
+  assert.equal(bufferedEventCount(state), 1);
+  assert.equal(state.droppedCount, 0);
+  assert.equal(state.pausedCount, 0);
+
+  receiveSelectedEvent(state, { source: 'api', level: 'INFO', _order: 3 }, selectedLevels);
+  assert.deepEqual(state.eventsBySource.get('api').map(event => event._order), [3]);
+  assert.equal(state.droppedBySource.get('api'), 1);
+  assert.equal(state.pausedCount, 1);
+});
+
+test('unchecked levels stop new arrivals while previously buffered history remains selectable', () => {
+  const state = createLogState(3);
+  const selectedLevels = new Set(['INFO']);
+  receiveSelectedEvent(state, { source: 'api', level: 'INFO', message: 'earlier', _order: 1 }, selectedLevels);
+  selectedLevels.clear();
+  selectedLevels.add('WARN');
+  receiveSelectedEvent(state, { source: 'api', level: 'INFO', message: 'discarded', _order: 2 }, selectedLevels);
+  receiveSelectedEvent(state, { source: 'api', level: 'WARN', message: 'current', _order: 3 }, selectedLevels);
+
+  assert.equal(bufferedEventCount(state), 2);
+  assert.deepEqual(filterEvents(displayedEvents(state), new Set(['api']), selectedLevels).map(event => event.message), ['current']);
+  selectedLevels.add('INFO');
+  assert.deepEqual(filterEvents(displayedEvents(state), new Set(['api']), selectedLevels).map(event => event.message), ['earlier', 'current']);
 });
 
 test('rejects malformed event records', () => {

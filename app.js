@@ -2,6 +2,11 @@ export const MAX_EVENTS = 500;
 export const LEVELS = new Set(['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'UNKNOWN']);
 export const DEFAULT_LEVELS = new Set(['INFO', 'WARN', 'ERROR']);
 
+export function normalizeLogLevel(value) {
+  const upper = String(value).toUpperCase();
+  return LEVELS.has(upper) ? upper : 'UNKNOWN';
+}
+
 export function createLogState(capacity = MAX_EVENTS) {
   return {
     capacity, eventsBySource: new Map(), paused: false, pausedCount: 0,
@@ -80,6 +85,15 @@ export function receiveEvent(state, event) {
     if (!retainedKeys.has(key)) state.expandedEventKeys.delete(key);
   }
   return { overflow, source, shouldRender: !state.paused };
+}
+
+export function receiveSelectedEvent(state, event, selectedLevels) {
+  const normalizedEvent = { ...event, level: normalizeLogLevel(event.level) };
+  const source = String(normalizedEvent.source ?? '');
+  if (!selectedLevels.has(normalizedEvent.level)) {
+    return { accepted: false, overflow: false, source, shouldRender: false };
+  }
+  return { accepted: true, ...receiveEvent(state, normalizedEvent) };
 }
 
 export function setPaused(state, paused) {
@@ -323,7 +337,7 @@ if (typeof document !== 'undefined') {
       year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, fractionalSecondDigits: 3
     });
   }
-  function safeLevel(value) { const upper = String(value).toUpperCase(); return LEVELS.has(upper) ? upper : 'UNKNOWN'; }
+  function safeLevel(value) { return normalizeLogLevel(value); }
   function serviceHue(name) { let hash = 0; for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) | 0; return Math.abs(hash) % 360; }
   function rememberScrollPositions() {
     state.scrollPositions.set(`${state.view}:outer`, logView.scrollTop);
@@ -402,7 +416,8 @@ if (typeof document !== 'undefined') {
       if (!event) return;
       const parsedOrder = Number.parseInt(message.lastEventId, 10);
       const order = Number.isSafeInteger(parsedOrder) ? parsedOrder : state.nextOrder++;
-      const result = receiveEvent(state, { ...event, _order: order, _key: state.nextEventKey++ });
+      const result = receiveSelectedEvent(state, { ...event, _order: order, _key: state.nextEventKey++ }, state.levels);
+      if (!result.accepted) return;
       if (result.overflow && state.droppedBySource.get(result.source) === 1) announceStatus(`The ${result.source} buffer is full. Its oldest log was dropped.`);
       if (result.shouldRender) render();
       else updateControls();
